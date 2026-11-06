@@ -1,0 +1,16 @@
+// Plain Java library: Android Studio builds it into the app, and `gradlew :analysis:test` runs its
+// JUnit tests on the laptop. Bytecode target 17 = what Android's build tools handle most reliably.
+plugins { id 'java-library' }
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test { useJUnitPlatform() }
