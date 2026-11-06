@@ -97,8 +97,7 @@ public class SentinelVpnService extends VpnService {
         try {
             sessionId = exporter.startSession(pkg, appName, Build.MODEL, false);
         } catch (IOException e) {
-            fail("Backend not reachable at " + backendUrl + " (" + e.getMessage() + "). "
-                    + "Is the laptop on the same Wi-Fi, uvicorn started with --host 0.0.0.0, and the API key correct?");
+            fail("Could not start monitoring. " + BackendCheck.describe(e, backendUrl));
             return;
         }
         final ObservationExporter ex = exporter;

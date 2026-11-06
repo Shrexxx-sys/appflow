@@ -41,6 +41,7 @@ public class MainActivity extends Activity {
     private EditText apiKey;
     private TextView statusText;
     private TextView errorText;
+    private TextView testText;
 
     private final Runnable refresher = new Runnable() {
         @Override
@@ -78,16 +79,24 @@ public class MainActivity extends Activity {
 
         // Saved on this phone (app-private storage) so you only type them once. Demo-level protection.
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        root.addView(label("Backend URL (laptop's Wi-Fi IP, same network)"));
+        root.addView(label("Backend URL: the laptop's IPv4 address (run ipconfig on the laptop), same Wi-Fi/hotspot"));
         backendUrl = new EditText(this);
         backendUrl.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-        backendUrl.setText(prefs.getString("backend_url", "http://192.168.1.5:8000"));
+        backendUrl.setHint("http://192.168.1.20:8000");     // only a hint - no fake address pre-filled
+        backendUrl.setText(prefs.getString("backend_url", ""));
         root.addView(backendUrl);
         root.addView(label("API key (API_KEY from the backend .env)"));
         apiKey = new EditText(this);
         apiKey.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         apiKey.setText(prefs.getString("api_key", ""));
         root.addView(apiKey);
+
+        Button test = new Button(this);
+        test.setText("Test connection");
+        test.setOnClickListener(v -> onTestClicked(test));
+        root.addView(test);
+        testText = new TextView(this);
+        root.addView(testText);
 
         Button start = new Button(this);
         start.setText("Start monitoring");
@@ -129,11 +138,14 @@ public class MainActivity extends Activity {
             errorText.setText("No app selected.");
             return;
         }
-        String url = backendUrl.getText().toString().trim();
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            errorText.setText("Backend URL must start with http:// (for example http://192.168.1.5:8000).");
+        String url;
+        try {
+            url = BackendCheck.normalizeUrl(backendUrl.getText().toString());
+        } catch (IllegalArgumentException e) {
+            errorText.setText(e.getMessage());
             return;
         }
+        backendUrl.setText(url);                            // show the cleaned-up address
         if (apiKey.getText().toString().trim().isEmpty()) {
             errorText.setText("Enter the API key from the backend .env file.");
             return;
@@ -164,9 +176,32 @@ public class MainActivity extends Activity {
                 .setAction(SentinelVpnService.ACTION_START)
                 .putExtra(SentinelVpnService.EXTRA_PACKAGE, packages.get(i))
                 .putExtra(SentinelVpnService.EXTRA_APP_NAME, names.get(i))
-                .putExtra(SentinelVpnService.EXTRA_BACKEND_URL, backendUrl.getText().toString().trim())
+                .putExtra(SentinelVpnService.EXTRA_BACKEND_URL, backendUrl.getText().toString())
                 .putExtra(SentinelVpnService.EXTRA_API_KEY, apiKey.getText().toString().trim());
         startService(start);
+    }
+
+    /** "Test connection": GET /health + API-key check on a background thread (network is not allowed on the UI thread). */
+    private void onTestClicked(Button button) {
+        String rawUrl = backendUrl.getText().toString();
+        String key = apiKey.getText().toString().trim();
+        button.setEnabled(false);
+        testText.setTextColor(0xFFAAAAAA);
+        testText.setText("Testing " + rawUrl.trim() + " …");
+        new Thread(() -> {
+            BackendCheck.Result r = BackendCheck.check(rawUrl, key);
+            ui.post(() -> {
+                button.setEnabled(true);
+                testText.setTextColor(r.ok ? 0xFF4ADE80 : 0xFFFF6B6B);
+                testText.setText(r.message);
+                if (r.ok) {
+                    String url = BackendCheck.normalizeUrl(rawUrl);
+                    backendUrl.setText(url);
+                    getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                            .putString("backend_url", url).putString("api_key", key).apply();
+                }
+            });
+        }, "test-connection").start();
     }
 
     private void onStopClicked() {
