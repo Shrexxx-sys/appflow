@@ -1,0 +1,22 @@
+# ---- secrets (never commit) ----
+.env
+config.js
+!dashboard/config.example.js
+
+# ---- Python ----
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# ---- runtime data ----
+*.db
+reports/
+
+# ---- Android / Gradle / IDE ----
+build/
+.gradle/
+local.properties
+.idea/
+*.iml
+*.apk

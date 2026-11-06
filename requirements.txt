@@ -1,0 +1,14 @@
+# --- web server ---
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-dotenv>=1.0
+# --- database ---
+sqlalchemy>=2.0
+# --- AI + reports ---
+google-genai>=1.0
+fpdf2>=2.7
+# --- simulator.py (also used by FastAPI's TestClient) ---
+httpx>=0.27
+# --- tests only ---
+pytest>=8.0
+pypdf>=4.0
