@@ -1,0 +1,28 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.appflow.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.appflow.sentinel'
+        minSdk 26          // Android 8.0+: needed for java.time and the network callback we use
+        targetSdk 35
+        versionCode 1
+        versionName '0.1'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    testOptions {
+        unitTests.all { useJUnitPlatform() }
+    }
+}
+
+dependencies {
+    implementation project(':analysis')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}

@@ -1,0 +1,12 @@
+// Two modules:
+//   :analysis = Member 2's plain-Java engine (no Android imports -> unit-testable on a laptop)
+//   :app      = Member 1's Android app (VPN + small screen), depends on :analysis
+pluginManagement {
+    repositories { google(); mavenCentral(); gradlePluginPortal() }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories { google(); mavenCentral() }
+}
+rootProject.name = "AppFlowSentinel"
+include ":app", ":analysis"

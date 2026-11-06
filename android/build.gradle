@@ -1,0 +1,4 @@
+// Top-level build file. Android Studio may offer to upgrade this version - accepting is fine.
+plugins {
+    id 'com.android.application' version '8.7.3' apply false
+}
