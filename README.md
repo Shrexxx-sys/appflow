@@ -60,6 +60,10 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 API docs: http://localhost:8000/docs (click **Authorize**, paste your API key).
 
+Upgrading from an older version: at startup the backend adds any new optional columns to an existing
+`appflow.db` (existing rows are kept and the change is logged as `Upgraded old database: ...`). If a required
+column were ever missing it stops with a message asking you to rename `appflow.db` — it never deletes data.
+
 **2. Dashboard** (second terminal)
 ```powershell
 copy dashboard\config.example.js dashboard\config.js   # paste API_KEY from .env into config.js

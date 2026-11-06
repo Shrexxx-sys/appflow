@@ -99,3 +99,28 @@ def test_domain_source_is_optional_and_stored(client):
     assert got == ["sni", "unavailable", None]
     bad = make_observation(sid, connections=[{**conns[0], "domain_source": "guess"}])
     assert client.post("/observations", json=bad, headers=AUTH).status_code == 422
+
+
+def test_old_database_without_domain_source_is_upgraded_on_startup(client):
+    """Regression: an appflow.db created before `domain_source` existed made every POST /observations
+    fail with 500 ("no column named domain_source"). Startup must add the column and keep old rows."""
+    from sqlalchemy import inspect, text
+
+    from app.database import engine, init_db
+
+    sid = start_session(client)
+    with engine.begin() as conn:                      # make the test DB look like the OLD layout
+        conn.execute(text("ALTER TABLE network_connections DROP COLUMN domain_source"))
+        conn.execute(text("INSERT INTO network_connections (session_id, domain, ip, port, protocol, bytes_up, "
+                          "bytes_down, timestamp, is_mock) VALUES (:s, 'old.example', '198.51.100.1', 443, "
+                          "'TCP', 1, 2, '2026-11-05 10:00:00', 1)"), {"s": sid})
+    assert "domain_source" not in [c["name"] for c in inspect(engine).get_columns("network_connections")]
+
+    init_db()                                         # what happens when the backend restarts
+
+    assert "domain_source" in [c["name"] for c in inspect(engine).get_columns("network_connections")]
+    r = client.post("/observations", json=make_observation(sid, t="2026-11-05T10:00:06Z"), headers=AUTH)
+    assert r.status_code == 202, r.text
+    rows = client.get(f"/sessions/{sid}/connections").json()
+    assert [c["domain"] for c in rows] == ["old.example", "api.demoshop.example"]   # old data kept
+    assert rows[0]["domain_source"] is None                                          # old rows: unknown

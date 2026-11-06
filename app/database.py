@@ -4,13 +4,16 @@ database.py - connects SQLAlchemy to SQLite.
 WHY SQLite: the whole database is ONE file (appflow.db). No server to install,
 perfect for a hackathon. SQLAlchemy lets us write Python classes instead of SQL.
 """
+import logging
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, create_engine, event
+from sqlalchemy import DateTime, create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.types import TypeDecorator
 
 from app import config
+
+log = logging.getLogger("appflow.db_migrate")
 
 # check_same_thread=False: FastAPI may use the connection from different threads.
 _connect_args = {"check_same_thread": False} if config.DATABASE_URL.startswith("sqlite") else {}
@@ -66,6 +69,36 @@ def get_db():
 
 
 def init_db() -> None:
-    """Create all tables if they don't exist yet (called once at startup)."""
+    """Create missing tables, then add missing columns to old tables (called once at startup)."""
     from app import models  # noqa: F401  (import registers the tables)
     Base.metadata.create_all(bind=engine)
+    _add_missing_columns()
+
+
+def _add_missing_columns() -> None:
+    """
+    create_all() only creates tables that don't exist; it never changes an existing table.
+    So an appflow.db made by an older version lacks newer columns (e.g. domain_source), and every
+    insert then fails. Here we add each missing column that may be empty (NULL): existing rows are
+    kept and simply get NULL. Nothing is ever deleted. A missing NOT NULL column cannot be added
+    safely, so we stop with a clear message instead of guessing.
+    """
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    with engine.begin() as conn:
+        for table in Base.metadata.sorted_tables:
+            if table.name not in existing_tables:
+                continue
+            have = {c["name"] for c in inspector.get_columns(table.name)}
+            for column in table.columns:
+                if column.name in have:
+                    continue
+                if not column.nullable:
+                    raise RuntimeError(
+                        f"Database table '{table.name}' is missing required column '{column.name}'. "
+                        "Your appflow.db was made by an older version. Stop the backend, rename "
+                        "appflow.db (for example to appflow_old.db) and start again to get a fresh one.")
+                col_type = column.type.compile(dialect=engine.dialect)
+                conn.execute(text(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {col_type}'))
+                log.warning("Upgraded old database: added missing column %s.%s (existing rows keep NULL)",
+                            table.name, column.name)
