@@ -15,96 +15,153 @@
   <script src="app.js" defer></script>
 </head>
 <body>
+  <!-- Icons: Lucide v1.70.0 (https://lucide.dev, ISC License), inlined so the page works offline. -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+    <symbol id="i-arrow-down-left" viewBox="0 0 24 24"><path d="M17 7 7 17" /> <path d="M17 17H7V7" /></symbol>
+    <symbol id="i-arrow-up-right" viewBox="0 0 24 24"><path d="M7 7h10v10" /> <path d="M7 17 17 7" /></symbol>
+    <symbol id="i-chart-column" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="M18 17V9" /> <path d="M13 17V5" /> <path d="M8 17v-3" /></symbol>
+    <symbol id="i-chart-line" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="m19 9-5 5-4-4-3 3" /></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+    <symbol id="i-circle-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /> <circle cx="12" cy="12" r="10" /></symbol>
+    <symbol id="i-circle-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /> <path d="M12 17h.01" /></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M12 6v6l4 2" /></symbol>
+    <symbol id="i-columns-3" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" /> <path d="M9 3v18" /> <path d="M15 3v18" /></symbol>
+    <symbol id="i-file-down" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M12 18v-6" /> <path d="m9 15 3 3 3-3" /></symbol>
+    <symbol id="i-flask-conical" viewBox="0 0 24 24"><path d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2" /> <path d="M6.453 15h11.094" /> <path d="M8.5 2h7" /></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4" /> <path d="M3.34 19a10 10 0 1 1 17.32 0" /></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M12 16v-4" /> <path d="M12 8h.01" /></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M3 5h.01" /> <path d="M3 12h.01" /> <path d="M3 19h.01" /> <path d="M8 5h13" /> <path d="M8 12h13" /> <path d="M8 19h13" /></symbol>
+    <symbol id="i-message-square-text" viewBox="0 0 24 24"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" /> <path d="M7 11h10" /> <path d="M7 15h6" /> <path d="M7 7h8" /></symbol>
+    <symbol id="i-network" viewBox="0 0 24 24"><rect x="16" y="16" width="6" height="6" rx="1" /> <rect x="2" y="16" width="6" height="6" rx="1" /> <rect x="9" y="2" width="6" height="6" rx="1" /> <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" /> <path d="M12 12V8" /></symbol>
+    <symbol id="i-radar" viewBox="0 0 24 24"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34" /> <path d="M4 6h.01" /> <path d="M2.29 9.62A10 10 0 1 0 21.31 8.35" /> <path d="M16.24 7.76A6 6 0 1 0 8.23 16.67" /> <path d="M12 18h.01" /> <path d="M17.99 11.66A6 6 0 0 1 15.77 16.67" /> <circle cx="12" cy="12" r="2" /> <path d="m13.41 10.59 5.66-5.66" /></symbol>
+    <symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" /></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2" ry="2" /> <rect width="20" height="8" x="2" y="14" rx="2" ry="2" /> <line x1="6" x2="6.01" y1="6" y2="6" /> <line x1="6" x2="6.01" y1="18" y2="18" /></symbol>
+    <symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /> <path d="M12 9v4" /> <path d="M12 17h.01" /></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M12 20h.01" /> <path d="M8.5 16.429a5 5 0 0 1 7 0" /> <path d="M5 12.859a10 10 0 0 1 5.17-2.69" /> <path d="M19 12.859a10 10 0 0 0-2.007-1.523" /> <path d="M2 8.82a15 15 0 0 1 4.177-2.643" /> <path d="M22 8.82a15 15 0 0 0-11.288-3.764" /> <path d="m2 2 20 20" /></symbol>
+  </svg>
   <header class="topbar">
-    <div class="brand"><span class="logo">&#9670;</span> AppFlow <strong>Sentinel</strong></div>
+    <div class="brand"><span class="logo"><svg class="icon" aria-hidden="true"><use href="#i-radar"/></svg></span><span>AppFlow <strong>Sentinel</strong></span></div>
     <div class="controls">
-      <label class="session-label">Session
-        <select id="session-select" aria-label="Choose a monitoring session"></select>
+      <label class="session-label">Monitoring session
+        <select id="session-select" aria-label="Choose which monitoring session to show"></select>
       </label>
-      <span id="live-pill" class="pill pill-off" title="Live updates via WebSocket">Offline</span>
-      <span id="last-update" class="muted small">Not updated yet</span>
+      <span id="live-pill" class="pill pill-off" title="Live updates from the backend"><svg class="icon" aria-hidden="true"><use href="#i-wifi-off"/></svg><span id="live-text">Offline</span></span>
+      <span id="last-update" class="muted small">Waiting for data</span>
     </div>
   </header>
 
   <div id="error-banner" class="banner banner-error" role="alert" hidden></div>
   <div id="mock-banner" class="banner banner-mock" hidden>
-    SIMULATED / MOCK DATA &mdash; generated by simulator.py, not captured from a real phone
+    <svg class="icon" aria-hidden="true"><use href="#i-flask-conical"/></svg><span><strong>SIMULATED DATA</strong> &mdash; these numbers come from simulator.py, not from a real phone.</span>
   </div>
 
   <main>
-    <section id="loading-state" class="card state-box">Loading sessions from the backend&hellip;</section>
+    <section id="loading-state" class="card state-box">
+      <span class="skel skel-line" style="width:40%"></span>
+      <span class="skel skel-line" style="width:70%"></span>
+      <p class="empty-note">Connecting to the backend&hellip;</p>
+    </section>
 
     <section id="empty-state" class="card state-box" hidden>
-      <h2>No monitoring sessions yet</h2>
-      <p>Start monitoring an app in the Android app, or run <code>python simulator.py</code> on the laptop for simulated data.</p>
+      <h2>Nothing is being monitored yet</h2>
+      <p class="empty-note">Start monitoring an app on the phone, or run <code>python simulator.py</code> on the laptop to see simulated traffic here.</p>
     </section>
 
     <section id="dashboard" hidden>
-      <div class="card status-row">
-        <span id="status-dot" class="dot"></span>
-        <div class="status-text">
-          <div><strong id="status-label">&mdash;</strong> <span id="app-name" class="muted"></span></div>
-          <div id="status-details" class="muted small"></div>
+      <div class="card hero">
+        <p id="verdict" class="verdict"><span class="skel skel-line" style="width:75%"></span></p>
+        <div class="status-row">
+          <span id="status-dot" class="dot"></span>
+          <div class="status-text">
+            <div><strong id="status-label"><span class="skel skel-num" style="width:14ch"></span></strong> <span id="app-name" class="muted"></span></div>
+            <div id="status-details" class="muted small"></div>
+          </div>
         </div>
+        <details id="help" class="help">
+          <summary><svg class="icon" aria-hidden="true"><use href="#i-circle-help"/></svg>How to read this page</summary>
+          <ul>
+            <li>This page shows <strong>who the chosen app talks to</strong> over the internet: which servers, how much data, and when.</li>
+            <li>It only sees the outside of the traffic (addresses, sizes, timing) &mdash; <strong>never what is inside</strong> messages, because that is encrypted.</li>
+            <li><strong>Alerts</strong> come from fixed rules, not from AI. Each one says how sure it is: <em>observed</em> = seen directly in the traffic, <em>inferred</em> = a conclusion drawn from what was seen.</li>
+            <li>An alert means <strong>unusual behavior worth reviewing</strong> &mdash; it is not proof that the app did anything wrong.</li>
+            <li>The <strong>risk score</strong> adds up the alerts: 0&ndash;39 low, 40&ndash;69 medium, 70+ high.</li>
+            <li>Hover or tap a <span class="tip-demo">?</span> to see what a technical word means.</li>
+          </ul>
+        </details>
       </div>
 
       <div class="stats-grid">
-        <div class="card stat"><div class="stat-label">Connections</div><div id="stat-connections" class="stat-value">&mdash;</div><div id="stat-domains" class="muted small"></div></div>
-        <div class="card stat"><div class="stat-label">Upload &uarr;</div><div id="stat-upload" class="stat-value">&mdash;</div><div class="muted small">sent by the app</div></div>
-        <div class="card stat"><div class="stat-label">Download &darr;</div><div id="stat-download" class="stat-value">&mdash;</div><div class="muted small">received by the app</div></div>
-        <div class="card stat" title="Score from the analysis engine's rules. 0-39 low, 40-69 medium, 70+ high."><div class="stat-label">Risk score</div><div class="stat-value"><span id="stat-risk">&mdash;</span> <span id="stat-risk-level" class="badge"></span></div><div class="riskbar"><div id="risk-fill"></div></div><div class="muted small">0&ndash;39 low &middot; 40&ndash;69 med &middot; 70+ high</div></div>
-        <div class="card stat"><div class="stat-label">Alerts</div><div id="stat-alerts" class="stat-value">&mdash;</div><div id="stat-alert-split" class="muted small"></div></div>
+        <div class="card stat"><div class="stat-label"><svg class="icon" aria-hidden="true"><use href="#i-network"/></svg>Connections<button type="button" class="tip" aria-label="What is a connection?" data-tip="One conversation between the app and a server, for example loading one picture or sending one batch of data.">?</button></div><div id="stat-connections" class="stat-value"><span class="skel skel-num"></span></div><div id="stat-domains" class="muted small"></div></div>
+        <div class="card stat"><div class="stat-label"><svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>Sent</div><div id="stat-upload" class="stat-value"><span class="skel skel-num"></span></div><div class="muted small">data the app sent out</div></div>
+        <div class="card stat"><div class="stat-label"><svg class="icon" aria-hidden="true"><use href="#i-arrow-down-left"/></svg>Received</div><div id="stat-download" class="stat-value"><span class="skel skel-num"></span></div><div class="muted small">data the app downloaded</div></div>
+        <div class="card stat"><div class="stat-label"><svg class="icon" aria-hidden="true"><use href="#i-gauge"/></svg>Risk score<button type="button" class="tip" aria-label="What is the risk score?" data-tip="Points added up from the alerts below: 0-39 low, 40-69 medium, 70+ high. It shows how much is worth reviewing, not whether the app is harmful.">?</button></div><div class="stat-value"><span id="stat-risk"><span class="skel skel-num"></span></span> <span id="stat-risk-level" class="badge"></span></div><div class="riskbar"><div id="risk-fill"></div></div></div>
+        <div class="card stat"><div class="stat-label"><svg class="icon" aria-hidden="true"><use href="#i-triangle-alert"/></svg>Alerts</div><div id="stat-alerts" class="stat-value"><span class="skel skel-num"></span></div><div id="stat-alert-split" class="muted small"></div></div>
       </div>
 
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-head"><h2>Upload vs download by destination</h2><span class="muted small">top 5</span></div>
-          <div class="chart-box"><canvas id="chart-domains" aria-label="Upload and download per destination"></canvas><div id="chart-domains-msg" class="chart-msg" hidden></div></div>
+      <div class="board">
+        <div class="card area-timeline">
+          <div class="card-head"><h2><svg class="icon" aria-hidden="true"><use href="#i-chart-line"/></svg>Traffic over time</h2><span id="timeline-note" class="muted small"></span></div>
+          <div class="chart-box"><canvas id="chart-timeline" aria-label="How much data moved over time"></canvas><div id="chart-timeline-msg" class="chart-msg"><span class="skel skel-block"></span></div></div>
         </div>
-        <div class="card">
-          <div class="card-head"><h2>Traffic over time</h2><span id="timeline-note" class="muted small"></span></div>
-          <div class="chart-box"><canvas id="chart-timeline" aria-label="Traffic over time"></canvas><div id="chart-timeline-msg" class="chart-msg" hidden></div></div>
-        </div>
-      </div>
 
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-head"><h2>Alerts</h2><span class="muted small">from the analysis engine's rules</span></div>
-          <div id="alerts-list" class="alert-list"><p class="muted">Loading alerts&hellip;</p></div>
+        <div class="card area-domains">
+          <div class="card-head"><h2><svg class="icon" aria-hidden="true"><use href="#i-chart-column"/></svg>Sent and received, by server</h2><span class="muted small">top 5</span></div>
+          <div class="chart-box"><canvas id="chart-domains" aria-label="Data sent and received per server"></canvas><div id="chart-domains-msg" class="chart-msg"><span class="skel skel-block"></span></div></div>
         </div>
-        <div class="card">
-          <div class="card-head"><h2>AI explanation</h2><button id="insight-btn" type="button">Explain with AI</button></div>
-          <div id="insight-status" class="muted small">Gemini explains the alerts from summarized metadata only. It does not detect anything itself.</div>
-          <div id="insight-meta" class="row-actions"></div>
-          <div id="insight-text" class="insight-text" hidden></div>
-          <details id="insight-evidence" hidden><summary>Show exactly what was sent to the AI</summary><pre id="insight-evidence-pre"></pre></details>
-        </div>
-      </div>
 
-      <div class="card">
-        <div class="card-head">
-          <h2>Connections</h2>
-          <div class="filters">
-            <input id="conn-search" type="search" placeholder="Search domain, IP or port" aria-label="Search connections">
-            <select id="conn-protocol" aria-label="Filter by protocol">
-              <option value="">All protocols</option><option>TCP</option><option>UDP</option><option>ICMP</option><option>OTHER</option>
-            </select>
+        <div class="side">
+          <div class="card area-alerts">
+            <div class="card-head"><h2><svg class="icon" aria-hidden="true"><use href="#i-triangle-alert"/></svg>What looked unusual</h2><span class="muted small">found by fixed rules, not by AI</span></div>
+            <div id="alerts-list" class="alert-list"><div class="skel skel-card"></div><div class="skel skel-card"></div></div>
+          </div>
+
+          <div class="card area-ai">
+            <div class="card-head"><h2><svg class="icon" aria-hidden="true"><use href="#i-message-square-text"/></svg>AI explanation</h2></div>
+            <p id="insight-status" class="muted small"></p>
+            <button id="insight-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-message-square-text"/></svg><span>Explain these alerts with AI</span></button>
+            <div id="insight-meta" class="row-actions"></div>
+            <div id="insight-text" class="insight-text" hidden></div>
+            <details id="insight-evidence" hidden><summary>See exactly what was sent to the AI</summary><pre id="insight-evidence-pre"></pre></details>
+          </div>
+
+          <div class="card area-report">
+            <div class="card-head"><h2><svg class="icon" aria-hidden="true"><use href="#i-file-down"/></svg>PDF report</h2></div>
+            <p id="report-status" class="muted small"></p>
+            <button id="report-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-file-down"/></svg><span>Create PDF report</span></button>
+            <ul id="report-list" class="report-list"></ul>
+          </div>
+        </div><!-- /side -->
+
+        <div class="card area-table">
+          <div class="card-head">
+            <h2><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>Who the app talked to</h2>
+            <div class="filters">
+              <input id="conn-search" type="search" placeholder="Search servers, IPs or ports" aria-label="Search connections">
+              <select id="conn-protocol" aria-label="Show only one protocol">
+                <option value="">All protocols</option><option>TCP</option><option>UDP</option><option>ICMP</option><option>OTHER</option>
+              </select>
+              <label class="toggle"><input id="adv-toggle" type="checkbox"> Show technical columns</label>
+            </div>
+          </div>
+          <div id="conn-count" class="muted small"></div>
+          <div class="table-wrap">
+            <table id="conn-table">
+              <thead><tr>
+                <th>Server<button type="button" class="tip" aria-label="What is a server name?" data-tip="The name of the computer the app talked to (its domain, like api.example.com). If the name was hidden by encryption, only the IP address is known.">?</button></th>
+                <th class="num">Sent</th>
+                <th class="num">Received</th>
+                <th>Time</th>
+                <th class="adv">IP<button type="button" class="tip" aria-label="What is an IP address?" data-tip="The numeric address of the server, like a phone number for computers.">?</button></th>
+                <th class="adv">Port<button type="button" class="tip" aria-label="What is a port?" data-tip="Which 'door' on the server was used. 443 is normal secure web traffic; 53 is name lookups (DNS).">?</button></th>
+                <th class="adv">Protocol<button type="button" class="tip" aria-label="What is a protocol?" data-tip="The delivery method: TCP is a reliable two-way conversation, UDP sends quick one-off messages.">?</button></th>
+                <th class="adv">Name from<button type="button" class="tip" aria-label="Where does the server name come from?" data-tip="dns = from a name lookup we saw. sni = from the server name the app announced when starting an encrypted connection. unavailable = hidden (encrypted DNS or ECH).">?</button></th>
+              </tr></thead>
+              <tbody id="conn-body"></tbody>
+            </table>
           </div>
         </div>
-        <div id="conn-count" class="muted small"></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Time</th><th>Domain</th><th>IP</th><th>Port</th><th>Proto</th><th class="num">&uarr; Up</th><th class="num">&darr; Down</th></tr></thead>
-            <tbody id="conn-body"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-head"><h2>PDF report</h2><button id="report-btn" type="button">Generate report</button></div>
-        <div id="report-status" class="muted small">Sections: observed facts, inferred, potential risks, cannot be observed, AI explanation.</div>
-        <ul id="report-list" class="report-list"></ul>
-      </div>
+      </div><!-- /board -->
     </section>
   </main>
 

@@ -9,7 +9,8 @@
 "use strict";
 
 const CFG = window.APPFLOW_CONFIG || {};
-const MAX_TABLE_ROWS = 300;     // drawing thousands of rows makes phones slow
+const MAX_TABLE_ROWS = 300;
+const TABLE_COLUMNS = 8;        // Server, Sent, Received, Time + 4 technical columns     // drawing thousands of rows makes phones slow
 const CONN_FETCH_LIMIT = 2000;
 const FALLBACK_POLL_MS = 5000;
 
@@ -76,6 +77,22 @@ function fmtDuration(totalSeconds) {
   return h ? `${h}h ${m}m ${sec}s` : m ? `${m}m ${sec}s` : `${sec}s`;
 }
 
+/** True once the session has any traffic. Before that we show "No traffic yet", never fake zeros. */
+function hasTraffic(s) {
+  return Boolean(s) && (s.total_connections > 0 || s.total_bytes_up > 0 || s.total_bytes_down > 0);
+}
+
+const START_HINT = "Start the simulator or the phone app to see traffic here.";
+
+/** A two-line empty state: what this panel will show + what to do. */
+function emptyState(title, hint) {
+  const box = el("div");
+  box.append(el("p", "empty-title", title), el("p", "empty-note", hint));
+  return box;
+}
+
+const skelNum = () => el("span", "skel skel-num");
+
 class ApiError extends Error {
   constructor(message, status) { super(message); this.status = status; }
 }
@@ -98,8 +115,9 @@ async function api(path, { method = "GET", body, auth = false, raw = false, time
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch (err) {
-    const why = err.name === "AbortError" ? "timed out" : "is unreachable";
-    throw new ApiError(`Backend ${why} at ${CFG.BACKEND_URL}. Is uvicorn running with --host 0.0.0.0?`, 0);
+    throw new ApiError(err.name === "AbortError"
+      ? `The backend at ${CFG.BACKEND_URL} took too long to answer. Is it running?`
+      : `Can't reach the backend at ${CFG.BACKEND_URL}. Is it running?`, 0);
   } finally {
     clearTimeout(timer);
   }
@@ -110,7 +128,9 @@ async function api(path, { method = "GET", body, auth = false, raw = false, time
       const j = await res.json();
       detail = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
     } catch { /* body was not JSON */ }
-    if (res.status === 401) detail = "API key rejected (401). Make API_KEY in dashboard/config.js match the backend .env.";
+    if (res.status === 401) {
+      detail = "The backend rejected the API key. Copy API_KEY from the backend's .env file into dashboard/config.js.";
+    }
     throw new ApiError(detail, res.status);
   }
   return raw ? res : res.json();
@@ -144,7 +164,7 @@ async function loadSessions() {
     clearError();
   } catch (err) {
     showError(err.message);
-    $("loading-state").textContent = "Could not load sessions. Retrying every few seconds…";
+    $("loading-state").replaceChildren(emptyState("Can't load sessions yet", "Trying again every 10 seconds."));
     return;
   }
   state.sessions = sessions;
@@ -173,7 +193,10 @@ async function loadSessions() {
 function renderSessionSelect() {
   const select = $("session-select");
   const options = state.sessions.map((s) => {
-    const label = `#${s.id} ${s.app.app_name || s.app.package_name} — ${s.status}${s.is_mock ? " (mock)" : ""}`;
+    const when = s.status === "active" ? "monitoring now" : "stopped";
+    const name = s.app.app_name || s.app.package_name;
+    const sim = s.is_mock && !/simulated/i.test(name) ? " (simulated)" : "";
+    const label = `#${s.id} ${name}${sim} — ${when}`;
     const opt = el("option", null, label);
     opt.value = String(s.id);
     return opt;
@@ -193,12 +216,38 @@ async function selectSession(id) {
   state.wsHadDrop = false;
   $("session-select").value = String(id);
   $("dashboard").hidden = false;
-  $("conn-body").replaceChildren(emptyRow("Loading connections…"));
+  showLoadingStates();
   resetInsightPanel();
   $("report-list").replaceChildren();
-  $("report-status").textContent = "Sections: observed facts, inferred, potential risks, cannot be observed, AI explanation.";
+  $("report-status").textContent = REPORT_INTRO;
   await Promise.all([refreshAll(), loadConnections(), loadInsights(), loadReports()]);
   connectWs();
+}
+
+/** Skeletons everywhere while the first data for a session loads (never a blank screen). */
+function showLoadingStates() {
+  for (const id of ["stat-connections", "stat-upload", "stat-download", "stat-risk", "stat-alerts"]) {
+    $(id).replaceChildren(skelNum());
+  }
+  for (const id of ["stat-domains", "stat-alert-split"]) $(id).textContent = "";
+  $("stat-risk-level").textContent = "";
+  $("stat-risk-level").className = "badge";
+  for (const id of ["chart-domains-msg", "chart-timeline-msg"]) {
+    $(id).replaceChildren(el("span", "skel skel-block"));
+    $(id).hidden = false;
+  }
+  $("alerts-list").replaceChildren(el("div", "skel skel-card"), el("div", "skel skel-card"));
+  const rows = [];
+  for (let i = 0; i < 5; i++) {
+    const tr = el("tr", "skeleton-row");
+    const td = el("td");
+    td.colSpan = TABLE_COLUMNS;
+    td.appendChild(el("span", "skel skel-line"));
+    tr.appendChild(td);
+    rows.push(tr);
+  }
+  $("conn-body").replaceChildren(...rows);
+  $("conn-count").textContent = "";
 }
 
 /** Re-fetch everything that is cheap: summary, timeline, alerts. */
@@ -235,30 +284,79 @@ function renderSummary(s) {
   state.summary = s;
   const active = s.status === "active";
   $("status-dot").className = active ? "dot active" : "dot";
-  $("status-label").textContent = active ? "Monitoring active" : "Monitoring stopped";
+  $("status-label").textContent = active ? "Monitoring now" : "Monitoring stopped";
   $("app-name").textContent = `${s.app.app_name || ""} (${s.app.package_name})`;
   $("status-details").textContent =
     `Started ${fmtDateTime(s.started_at)} · ${active ? "running for" : "lasted"} ${fmtDuration(s.duration_seconds)}`;
   $("mock-banner").hidden = !s.is_mock;
 
-  $("stat-connections").textContent = s.total_connections.toLocaleString();
-  $("stat-domains").textContent = `${s.unique_domains} unique domains`;
-  $("stat-upload").textContent = fmtBytes(s.total_bytes_up);
-  $("stat-download").textContent = fmtBytes(s.total_bytes_down);
-  renderRisk(s.risk_score, s.risk_level);
-
   const c = s.alert_counts;
-  $("stat-alerts").textContent = c.total;
-  $("stat-alert-split").textContent = `${c.high} high · ${c.medium} medium · ${c.low} low`;
+  if (!hasTraffic(s)) {
+    // No data yet: say so instead of showing zeros that look like real measurements.
+    for (const id of ["stat-connections", "stat-upload", "stat-download", "stat-alerts"]) {
+      $(id).replaceChildren(el("span", "empty-note", "No traffic yet"));
+    }
+    $("stat-domains").textContent = START_HINT;
+    $("stat-alert-split").textContent = "";
+  } else {
+    $("stat-connections").textContent = s.total_connections.toLocaleString();
+    $("stat-domains").textContent = `${s.unique_domains} unique domains`;
+    $("stat-upload").textContent = fmtBytes(s.total_bytes_up);
+    $("stat-download").textContent = fmtBytes(s.total_bytes_down);
+    $("stat-alerts").textContent = c.total;
+    $("stat-alert-split").textContent = `${c.high} high · ${c.medium} medium · ${c.low} low`;
+  }
+  renderRisk(s.risk_score, s.risk_level);
+  renderVerdict(s);
   renderDomainChart(s.top_domains);
 }
 
+function plural(n, one, many) {
+  return `${n.toLocaleString()} ${n === 1 ? one : many}`;
+}
+
+/**
+ * One plain-English sentence built only from the data, e.g.
+ * "DemoShop talked to at least 5 servers in the last 2m 3s, sending 1.7 MB and receiving 28.1 MB.
+ *  3 things looked unusual and are worth reviewing."
+ * Wording rule: never "malware", never "safe/unsafe".
+ */
+function renderVerdict(s) {
+  const name = s.app.app_name || s.app.package_name;
+  const active = s.status === "active";
+  const dur = fmtDuration(s.duration_seconds);
+  let text;
+  if (!hasTraffic(s)) {
+    text = active
+      ? `${name} is being monitored, but no traffic has been seen yet. ${START_HINT}`
+      : `${name} was monitored for ${dur}, but no traffic was seen.`;
+  } else {
+    const when = active ? `in the last ${dur}` : `during a ${dur} session`;
+    // unique_domains only counts servers whose name was visible, so "at least" keeps it honest.
+    const who = s.unique_domains > 0
+      ? `at least ${plural(s.unique_domains, "server", "servers")}`
+      : plural(s.total_connections, "connection", "connections");
+    const n = s.alert_counts.total;
+    const findings = n === 0
+      ? "Nothing looked unusual so far."
+      : `${n === 1 ? "1 thing" : `${n} things`} looked unusual and ${n === 1 ? "is" : "are"} worth reviewing.`;
+    text = `${name} talked to ${who} ${when}, sending ${fmtBytes(s.total_bytes_up)} and receiving `
+      + `${fmtBytes(s.total_bytes_down)}. ${findings}`;
+  }
+  $("verdict").textContent = text;
+}
+
 function renderRisk(score, level) {
-  $("stat-risk").textContent = score ?? "—";
+  if (score === null || score === undefined) {
+    $("stat-risk").replaceChildren(el("span", "empty-note", "Not scored yet"));
+  } else {
+    $("stat-risk").textContent = score;
+  }
   const badge = $("stat-risk-level");
-  badge.textContent = level || "n/a";
+  badge.textContent = level || "";
   badge.className = `badge ${level || ""}`;
   $("risk-fill").style.width = `${score || 0}%`;
+  $("risk-fill").className = level || "";
 }
 
 // ---------------------------------------------------------------------------
@@ -274,16 +372,20 @@ function chartsReady() {
   }
   if (state.charts.domains) return true;
 
-  Chart.defaults.color = "#9aa0c8";
-  Chart.defaults.borderColor = "#2b2f55";
+  // Colours come from the CSS variables, so they are defined in exactly one place (style.css).
+  const css = getComputedStyle(document.documentElement);
+  const v = (name) => css.getPropertyValue(name).trim();
+  const BRAND = v("--brand"), NEUTRAL = v("--neutral-series"), MEDIUM = v("--medium"), HIGH = v("--high");
+  Chart.defaults.color = v("--muted");
+  Chart.defaults.borderColor = v("--border");
   Chart.defaults.font.family = "system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
 
   const shorten = (label) => (label.length > 22 ? `${label.slice(0, 21)}…` : label);
   state.charts.domains = new Chart($("chart-domains"), {
     type: "bar",
     data: { labels: [], datasets: [
-      { label: "Upload", data: [], backgroundColor: "#8b5cf6", borderRadius: 4 },
-      { label: "Download", data: [], backgroundColor: "#3b82f6", borderRadius: 4 },
+      { label: "Sent", data: [], backgroundColor: BRAND, borderRadius: 4 },
+      { label: "Received", data: [], backgroundColor: NEUTRAL, borderRadius: 4 },
     ] },
     options: {
       indexAxis: "y", responsive: true, maintainAspectRatio: false, animation: false,
@@ -298,22 +400,22 @@ function chartsReady() {
   state.charts.timeline = new Chart($("chart-timeline"), {
     type: "line",
     data: { labels: [], datasets: [
-      { label: "Upload (KB)", data: [], borderColor: "#8b5cf6", backgroundColor: "rgba(139,92,246,0.15)",
+      { label: "Sent (KB)", data: [], borderColor: BRAND, backgroundColor: v("--brand-soft"),
         fill: true, tension: 0.3, pointRadius: 0, yAxisID: "y" },
-      { label: "Download (KB)", data: [], borderColor: "#3b82f6", backgroundColor: "rgba(59,130,246,0.15)",
-        fill: true, tension: 0.3, pointRadius: 0, yAxisID: "y" },
-      { label: "Risk score", data: [], borderColor: "#f59e0b", borderDash: [5, 4], pointRadius: 0,
+      { label: "Received (KB)", data: [], borderColor: NEUTRAL, backgroundColor: "transparent",
+        fill: false, tension: 0.3, pointRadius: 0, yAxisID: "y" },
+      { label: "Risk score", data: [], borderColor: MEDIUM, borderDash: [5, 4], pointRadius: 0,
         stepped: true, yAxisID: "risk" },
       { label: "Alert", data: [], showLine: false, pointStyle: "triangle", pointRadius: 8,
-        backgroundColor: "#ef4444", borderColor: "#ef4444", yAxisID: "risk" },
+        backgroundColor: HIGH, borderColor: HIGH, yAxisID: "risk" },
     ] },
     options: {
       responsive: true, maintainAspectRatio: false, animation: false,
       interaction: { mode: "index", intersect: false },
       scales: {
-        y: { beginAtZero: true, title: { display: true, text: "KB per interval" } },
+        y: { beginAtZero: true, title: { display: true, text: "KB in each interval" } },
         risk: { position: "right", min: 0, max: 100, grid: { drawOnChartArea: false },
-                title: { display: true, text: "risk" } },
+                title: { display: true, text: "risk score" } },
       },
       plugins: { tooltip: { callbacks: { label: (ctx) => {
         if (ctx.dataset.label === "Alert") return ctx.raw === null ? null : `Alert: ${state.charts.alertTitles[ctx.dataIndex]}`;
@@ -328,7 +430,7 @@ function renderDomainChart(topDomains) {
   if (!chartsReady()) return;
   const msg = $("chart-domains-msg");
   msg.hidden = topDomains.length > 0;
-  msg.textContent = "No traffic recorded yet.";
+  msg.replaceChildren(emptyState("Which servers got the most data", START_HINT));
   const chart = state.charts.domains;
   chart.data.labels = topDomains.map((d) => d.domain);
   chart.data.datasets[0].data = topDomains.map((d) => d.bytes_up / 1e6);
@@ -356,11 +458,12 @@ async function refreshTimeline() {
 }
 
 function renderTimeline(t) {
-  $("timeline-note").textContent = `per ${t.interval_seconds}s`;
+  $("timeline-note").textContent = `one point every ${t.interval_seconds} s`;
   if (!chartsReady()) return;
   const msg = $("chart-timeline-msg");
   msg.hidden = t.points.length > 0;
-  msg.textContent = "No traffic recorded yet.";
+  msg.replaceChildren(emptyState("How much data moved, second by second",
+    `Red markers show when something unusual happened. ${START_HINT}`));
 
   const chart = state.charts.timeline;
   chart.data.labels = t.points.map((p) => fmtTime(p.timestamp));
@@ -405,29 +508,35 @@ function renderAlerts(alerts) {
   state.alertsKey = key;
   const list = $("alerts-list");
   if (alerts.length === 0) {
-    list.replaceChildren(el("p", "muted",
-      "No alerts so far. This only means no rule fired - it is not proof that the app is safe."));
+    list.replaceChildren(hasTraffic(state.summary)
+      ? emptyState("Nothing unusual so far",
+          "The rules keep checking every new connection. No alert does not prove anything about the app; it only means no rule matched.")
+      : emptyState("Unusual behavior will be listed here", START_HINT));
     return;
   }
   list.replaceChildren(...alerts.slice().reverse().map(alertCard));  // newest first
 }
 
 function alertCard(a) {
-  const box = el("div", `alert ${a.severity}`);
-  const head = el("div", "row-actions");
-  const [typeLabel, typeHelp] = EVIDENCE_INFO[a.evidence_type] || [a.evidence_type, ""];
-  const typeBadge = el("span", "badge type", typeLabel);
-  typeBadge.title = typeHelp;
-  head.append(el("span", `badge ${a.severity}`, a.severity), typeBadge,
-              el("span", "muted small", fmtTime(a.detected_at)));
+  const box = el("article", `alert ${a.severity}`);
+  const head = el("div", "alert-head");
+  // Severity is always a TEXT label; the colour only repeats it.
+  head.append(el("span", `badge ${a.severity}`, a.severity), el("span", "muted small", fmtTime(a.detected_at)));
 
+  // Technical evidence stays one click away, so the sentence comes first.
+  const details = el("details", "alert-details");
+  details.appendChild(el("summary", null, "Show details"));
+  const [typeLabel, typeHelp] = EVIDENCE_INFO[a.evidence_type] || [a.evidence_type, ""];
+  const how = el("p", "small");
+  how.append(el("span", "badge type", typeLabel), ` ${typeHelp}`);
   const chips = el("div", "chips");
   const target = [a.related_domain, a.related_ip, a.related_port && `port ${a.related_port}`].filter(Boolean);
   if (target.length) chips.appendChild(el("span", "chip", target.join(" · ")));
   for (const [k, v] of Object.entries(a.evidence || {})) {
     chips.appendChild(el("span", "chip", `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`));
   }
-  box.append(head, el("div", "alert-title", a.title), el("p", null, a.description), chips);
+  details.append(how, chips);
+  box.append(head, el("p", "alert-title", a.title), el("p", "alert-text", a.description), details);
   return box;
 }
 
@@ -462,7 +571,7 @@ function addConnections(newRows) {
 function emptyRow(text) {
   const tr = el("tr", "empty-row");
   const td = el("td", null, text);
-  td.colSpan = 7;
+  td.colSpan = TABLE_COLUMNS;
   tr.appendChild(td);
   return tr;
 }
@@ -483,34 +592,32 @@ function renderConnections() {
   const shown = matches.slice(0, MAX_TABLE_ROWS);
   const body = $("conn-body");
   if (state.connections.length === 0) {
-    body.replaceChildren(emptyRow("No connections recorded yet for this session."));
+    body.replaceChildren(emptyRow(`No connections yet. ${START_HINT}`));
   } else if (shown.length === 0) {
-    body.replaceChildren(emptyRow("No connections match your search."));
+    body.replaceChildren(emptyRow("No connections match your search. Try a different word or clear the filter."));
   } else {
     body.replaceChildren(...shown.map(connectionRow));
   }
-  $("conn-count").textContent =
-    `Showing ${shown.length} of ${matches.length} matching · ${state.connections.length} loaded`;
+  const filtered = query || proto ? ` matching your filter (${state.connections.length} in total)` : "";
+  const capped = matches.length > shown.length ? ` · newest ${shown.length} shown` : "";
+  $("conn-count").textContent = `${plural(matches.length, "connection", "connections")}${filtered}${capped}`;
 }
 
 function connectionRow(c) {
   const tr = el("tr");
-  tr.appendChild(el("td", null, fmtTime(c.timestamp)));
-
-  const domainCell = el("td", "domain");
-  domainCell.title = c.domain || "No domain name observable";
-  domainCell.appendChild(el("span", c.domain ? null : "muted", c.domain || "(not observable)"));
-  if (c.domain_source) {
-    domainCell.append(" ");
-    domainCell.appendChild(el("span", "badge src", c.domain_source));
+  const server = el("td", "domain");
+  if (c.domain) {
+    server.textContent = c.domain;
+    server.title = c.domain;
+  } else {
+    server.appendChild(el("span", "muted", "Domain unavailable (encrypted)"));
+    server.title = `The name was not visible, only the IP address: ${c.ip}`;
   }
-  tr.appendChild(domainCell);
-
-  tr.appendChild(el("td", null, c.ip));
-  tr.appendChild(el("td", null, c.port));
-  tr.appendChild(el("td", null, c.protocol));
-  tr.appendChild(el("td", "num", fmtBytes(c.bytes_up)));
-  tr.appendChild(el("td", "num", fmtBytes(c.bytes_down)));
+  const source = el("td", "adv");
+  source.appendChild(c.domain_source ? el("span", "badge src", c.domain_source) : el("span", "muted", "not reported"));
+  tr.append(server, el("td", "num", fmtBytes(c.bytes_up)), el("td", "num", fmtBytes(c.bytes_down)),
+    el("td", null, fmtTime(c.timestamp)), el("td", "adv", c.ip), el("td", "adv", c.port),
+    el("td", "adv proto", c.protocol), source);
   return tr;
 }
 
@@ -521,13 +628,17 @@ function apiKeyMissing() {
   return !CFG.API_KEY || CFG.API_KEY.startsWith("PASTE_");
 }
 
-const KEY_HELP = "Set API_KEY in dashboard/config.js (copy it from the backend .env) to use this.";
+const KEY_HELP = "This needs the API key: copy API_KEY from the backend's .env file into dashboard/config.js.";
+const AI_INTRO = "Get a plain-English explanation of the alerts. Only a short summary (server names, ports, "
+  + "byte totals, alerts) is sent to the AI, never the traffic itself.";
+const REPORT_INTRO = "A PDF with what was seen, what was inferred, what could be risky, what can't be seen, "
+  + "and the AI explanation.";
 
 function resetInsightPanel() {
   $("insight-meta").replaceChildren();
   $("insight-text").hidden = true;
   $("insight-evidence").hidden = true;
-  $("insight-status").textContent = "Gemini explains the alerts from summarized metadata only. It does not detect anything itself.";
+  $("insight-status").textContent = AI_INTRO;
 }
 
 async function loadInsights() {
@@ -540,9 +651,9 @@ async function loadInsights() {
     const list = await api(`/sessions/${id}/insights`, { auth: true });
     if (id !== state.sessionId) return;
     if (list.length) renderInsight(list[0]);  // newest first
-    else $("insight-status").textContent = 'No AI explanation yet. Click "Explain with AI".';
+    else $("insight-status").textContent = AI_INTRO;
   } catch (err) {
-    $("insight-status").textContent = `Could not load AI explanations: ${err.message}`;
+    $("insight-status").textContent = `Couldn't load earlier explanations. ${err.message}`;
   }
 }
 
@@ -551,36 +662,40 @@ async function requestInsight() {
   const id = state.sessionId;
   const btn = $("insight-btn");
   btn.disabled = true;
-  btn.textContent = "Asking…";
+  btn.querySelector("span").textContent = "Asking the AI…";
   $("insight-status").textContent =
-    "Asking Gemini… this can take up to ~15 s. If Gemini is unavailable you get a rule-based summary instead.";
+    "Asking the AI. This can take up to 15 seconds. If it doesn't answer, you get a summary written by the app's rules instead.";
+  $("insight-text").replaceChildren(el("span", "skel skel-line"), el("span", "skel skel-line"),
+    el("span", "skel skel-line"));
+  $("insight-text").hidden = false;
   try {
     const insight = await api(`/sessions/${id}/insights`, {
       method: "POST", body: { force_refresh: false }, auth: true, timeoutMs: 45000,
     });
     if (id === state.sessionId) renderInsight(insight);
   } catch (err) {
-    $("insight-status").textContent = `AI explanation failed: ${err.message}`;
+    $("insight-status").textContent = `Couldn't get an explanation. ${err.message}`;
+    $("insight-text").hidden = true;
   } finally {
     btn.disabled = false;
-    btn.textContent = "Explain with AI";
+    btn.querySelector("span").textContent = "Explain these alerts with AI";
   }
 }
 
 function renderInsight(i) {
   const badges = [];
   if (i.source === "gemini") {
-    badges.push(el("span", "badge type", `Gemini${i.model ? ` · ${i.model}` : ""}`));
-    $("insight-status").textContent = "AI-generated explanation of the evidence. Treat it as a helper, not a verdict.";
+    badges.push(el("span", "badge type", `Written by AI${i.model ? ` · ${i.model}` : ""}`));
+    $("insight-status").textContent = "Written by AI from the summary below. Use it as a helper, not a verdict.";
   } else if (i.source === "fallback") {
-    badges.push(el("span", "badge medium", "rule-based fallback"));
+    badges.push(el("span", "badge medium", "Rule-based summary"));
     $("insight-status").textContent =
-      "Gemini was unavailable, so this text was generated by code from the same evidence (not by AI).";
+      "The AI didn't answer, so this summary was written by the app's own rules (not by AI).";
   } else {
     badges.push(el("span", "badge", i.source));
   }
-  if (i.cached) badges.push(el("span", "badge", "cached"));
-  if (i.is_mock) badges.push(el("span", "badge medium", "mock data"));
+  if (i.cached) badges.push(el("span", "badge", "saved earlier"));
+  if (i.is_mock) badges.push(el("span", "badge medium", "simulated data"));
   badges.push(el("span", "muted small", fmtDateTime(i.created_at)));
   $("insight-meta").replaceChildren(...badges);
 
@@ -606,7 +721,7 @@ async function loadReports() {
     if (id !== state.sessionId) return;
     renderReports(reports);
   } catch (err) {
-    $("report-status").textContent = `Could not load reports: ${err.message}`;
+    $("report-status").textContent = `Couldn't load earlier reports. ${err.message}`;
   }
 }
 
@@ -615,7 +730,7 @@ function renderReports(reports) {
     const li = el("li");
     const left = el("span");
     left.append(el("span", null, r.filename), el("span", "muted small", ` · ${fmtDateTime(r.created_at)}`));
-    const btn = el("button", "secondary", "Download PDF");
+    const btn = el("button", "secondary", "Download again");
     btn.type = "button";
     btn.addEventListener("click", () => downloadReport(r, btn));
     li.append(left, btn);
@@ -629,19 +744,19 @@ async function generateReport() {
   const id = state.sessionId;
   const btn = $("report-btn");
   btn.disabled = true;
-  btn.textContent = "Building PDF…";
-  $("report-status").textContent = "Building the PDF (it reuses the cached AI explanation if there is one)…";
+  btn.querySelector("span").textContent = "Creating PDF…";
+  $("report-status").textContent = "Creating the PDF. This takes a few seconds.";
   try {
     const report = await api(`/sessions/${id}/report`, { method: "POST", auth: true, timeoutMs: 60000 });
     if (id !== state.sessionId) return;
-    $("report-status").textContent = `Report ready: ${report.filename}`;
+    $("report-status").textContent = `Your PDF report is downloading: ${report.filename}`;
     await loadReports();
     await downloadReport(report);
   } catch (err) {
-    $("report-status").textContent = `Report failed: ${err.message}`;
+    $("report-status").textContent = `Couldn't create the PDF. ${err.message}`;
   } finally {
     btn.disabled = false;
-    btn.textContent = "Generate report";
+    btn.querySelector("span").textContent = "Create PDF report";
   }
 }
 
@@ -658,9 +773,9 @@ async function downloadReport(report, button) {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);  // free the memory a bit later
   } catch (err) {
-    $("report-status").textContent = `Download failed: ${err.message}`;
+    $("report-status").textContent = `Couldn't download the PDF. ${err.message}`;
   } finally {
-    if (button) { button.disabled = false; button.textContent = "Download PDF"; }
+    if (button) { button.disabled = false; button.textContent = "Download again"; }
   }
 }
 
@@ -669,9 +784,14 @@ async function downloadReport(report, button) {
 // ---------------------------------------------------------------------------
 function setLive(mode) {
   const pill = $("live-pill");
-  const labels = { live: ["Live", "pill-live"], wait: ["Reconnecting…", "pill-wait"], off: ["Offline", "pill-off"] };
-  const [text, cls] = labels[mode];
-  pill.textContent = text;
+  const labels = {
+    live: ["Live", "pill-live", "circle-dot"],
+    wait: ["Reconnecting…", "pill-wait", "refresh-cw"],
+    off: ["Offline", "pill-off", "wifi-off"],
+  };
+  const [text, cls, iconName] = labels[mode];
+  $("live-text").textContent = text;
+  pill.querySelector("use").setAttribute("href", `#i-${iconName}`);
   pill.className = `pill ${cls}`;
 }
 
@@ -766,12 +886,12 @@ function handleLive(msg) {
       loadSessions();
       break;
     case "session_deleted":
-      showError(`Session #${msg.session_id} was deleted.`);
+      showError(`Session #${msg.session_id} was deleted, so its data is gone.`);
       state.sessionId = null;
       loadSessions();
       break;
     case "error":
-      showError(msg.data && msg.data.detail ? msg.data.detail : "Live update error");
+      showError(msg.data && msg.data.detail ? msg.data.detail : "Live updates stopped working. Reload the page to try again.");
       break;
     default:
       break;  // "pong" and unknown types
@@ -792,10 +912,14 @@ function init() {
   });
   $("conn-search").addEventListener("input", renderConnections);
   $("conn-protocol").addEventListener("change", renderConnections);
+  $("adv-toggle").addEventListener("change", (e) => {
+    $("conn-table").classList.toggle("show-adv", e.target.checked);   // IP, port, protocol, name source
+  });
   $("insight-btn").addEventListener("click", requestInsight);
   $("report-btn").addEventListener("click", generateReport);
   if (apiKeyMissing()) {
-    showError("API_KEY is not set in dashboard/config.js. Live data works, but AI explanations and reports need it.");
+    showError("AI explanations and PDF reports need the API key: copy API_KEY from the backend's .env file "
+      + "into dashboard/config.js. Live data works without it.");
   }
 
   loadSessions();
